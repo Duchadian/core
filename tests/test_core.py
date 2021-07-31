@@ -233,6 +233,29 @@ async def test_async_add_job_pending_tasks_coro(hass):
     assert len(call_count) == 2
 
 
+async def test_async_create_task_pending_tasks_coro(hass):
+    """Add a coro to pending tasks."""
+    call_count = []
+
+    async def test_coro():
+        """Test Coro."""
+        call_count.append("call")
+
+    for _ in range(2):
+        hass.create_task(test_coro())
+
+    async def wait_finish_callback():
+        """Wait until all stuff is scheduled."""
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    await wait_finish_callback()
+
+    assert len(hass._pending_tasks) == 2
+    await hass.async_block_till_done()
+    assert len(call_count) == 2
+
+
 async def test_async_add_job_pending_tasks_executor(hass):
     """Run an executor in pending tasks."""
     call_count = []
@@ -292,9 +315,9 @@ def test_event_eq():
     now = dt_util.utcnow()
     data = {"some": "attr"}
     context = ha.Context()
-    event1, event2 = [
+    event1, event2 = (
         ha.Event("some_type", data, time_fired=now, context=context) for _ in range(2)
-    ]
+    )
 
     assert event1 == event2
 
@@ -889,6 +912,7 @@ def test_config_defaults():
     assert config.media_dirs == {}
     assert config.safe_mode is False
     assert config.legacy_templates is False
+    assert config.currency == "EUR"
 
 
 def test_config_path_with_file():
@@ -929,6 +953,7 @@ def test_config_as_dict():
         "state": "RUNNING",
         "external_url": None,
         "internal_url": None,
+        "currency": "EUR",
     }
 
     assert expected == config.as_dict()

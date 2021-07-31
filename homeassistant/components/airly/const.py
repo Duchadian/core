@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Final
 
+from homeassistant.components.sensor import STATE_CLASS_MEASUREMENT
 from homeassistant.const import (
     CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
     DEVICE_CLASS_HUMIDITY,
@@ -13,22 +14,27 @@ from homeassistant.const import (
     TEMP_CELSIUS,
 )
 
-from .model import SensorDescription
+from .model import AirlySensorEntityDescription
 
 ATTR_API_ADVICE: Final = "ADVICE"
 ATTR_API_CAQI: Final = "CAQI"
 ATTR_API_CAQI_DESCRIPTION: Final = "DESCRIPTION"
 ATTR_API_CAQI_LEVEL: Final = "LEVEL"
 ATTR_API_HUMIDITY: Final = "HUMIDITY"
-ATTR_API_PM1: Final = "PM1"
 ATTR_API_PM10: Final = "PM10"
-ATTR_API_PM10_LIMIT: Final = "PM10_LIMIT"
-ATTR_API_PM10_PERCENT: Final = "PM10_PERCENT"
+ATTR_API_PM1: Final = "PM1"
 ATTR_API_PM25: Final = "PM25"
-ATTR_API_PM25_LIMIT: Final = "PM25_LIMIT"
-ATTR_API_PM25_PERCENT: Final = "PM25_PERCENT"
 ATTR_API_PRESSURE: Final = "PRESSURE"
 ATTR_API_TEMPERATURE: Final = "TEMPERATURE"
+
+ATTR_ADVICE: Final = "advice"
+ATTR_DESCRIPTION: Final = "description"
+ATTR_LEVEL: Final = "level"
+ATTR_LIMIT: Final = "limit"
+ATTR_PERCENT: Final = "percent"
+
+SUFFIX_PERCENT: Final = "PERCENT"
+SUFFIX_LIMIT: Final = "LIMIT"
 
 ATTRIBUTION: Final = "Data provided by Airly"
 CONF_USE_NEAREST: Final = "use_nearest"
@@ -40,29 +46,54 @@ MAX_UPDATE_INTERVAL: Final = 90
 MIN_UPDATE_INTERVAL: Final = 5
 NO_AIRLY_SENSORS: Final = "There are no Airly sensors in this area yet."
 
-SENSOR_TYPES: dict[str, SensorDescription] = {
-    ATTR_API_PM1: {
-        "device_class": None,
-        "icon": "mdi:blur",
-        "label": ATTR_API_PM1,
-        "unit": CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
-    },
-    ATTR_API_HUMIDITY: {
-        "device_class": DEVICE_CLASS_HUMIDITY,
-        "icon": None,
-        "label": ATTR_API_HUMIDITY.capitalize(),
-        "unit": PERCENTAGE,
-    },
-    ATTR_API_PRESSURE: {
-        "device_class": DEVICE_CLASS_PRESSURE,
-        "icon": None,
-        "label": ATTR_API_PRESSURE.capitalize(),
-        "unit": PRESSURE_HPA,
-    },
-    ATTR_API_TEMPERATURE: {
-        "device_class": DEVICE_CLASS_TEMPERATURE,
-        "icon": None,
-        "label": ATTR_API_TEMPERATURE.capitalize(),
-        "unit": TEMP_CELSIUS,
-    },
-}
+SENSOR_TYPES: tuple[AirlySensorEntityDescription, ...] = (
+    AirlySensorEntityDescription(
+        key=ATTR_API_CAQI,
+        name=ATTR_API_CAQI,
+        unit_of_measurement="CAQI",
+    ),
+    AirlySensorEntityDescription(
+        key=ATTR_API_PM1,
+        icon="mdi:blur",
+        name=ATTR_API_PM1,
+        unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    AirlySensorEntityDescription(
+        key=ATTR_API_PM25,
+        icon="mdi:blur",
+        name="PM2.5",
+        unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    AirlySensorEntityDescription(
+        key=ATTR_API_PM10,
+        icon="mdi:blur",
+        name=ATTR_API_PM10,
+        unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    AirlySensorEntityDescription(
+        key=ATTR_API_HUMIDITY,
+        device_class=DEVICE_CLASS_HUMIDITY,
+        name=ATTR_API_HUMIDITY.capitalize(),
+        unit_of_measurement=PERCENTAGE,
+        state_class=STATE_CLASS_MEASUREMENT,
+        value=lambda value: round(value, 1),
+    ),
+    AirlySensorEntityDescription(
+        key=ATTR_API_PRESSURE,
+        device_class=DEVICE_CLASS_PRESSURE,
+        name=ATTR_API_PRESSURE.capitalize(),
+        unit_of_measurement=PRESSURE_HPA,
+        state_class=STATE_CLASS_MEASUREMENT,
+    ),
+    AirlySensorEntityDescription(
+        key=ATTR_API_TEMPERATURE,
+        device_class=DEVICE_CLASS_TEMPERATURE,
+        name=ATTR_API_TEMPERATURE.capitalize(),
+        unit_of_measurement=TEMP_CELSIUS,
+        state_class=STATE_CLASS_MEASUREMENT,
+        value=lambda value: round(value, 1),
+    ),
+)

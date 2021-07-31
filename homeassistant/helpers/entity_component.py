@@ -76,7 +76,7 @@ class EntityComponent:
         domain: str,
         hass: HomeAssistant,
         scan_interval: timedelta = DEFAULT_SCAN_INTERVAL,
-    ):
+    ) -> None:
         """Initialize an entity component."""
         self.logger = logger
         self.hass = hass
@@ -331,5 +331,5 @@ class EntityComponent:
     async def _async_shutdown(self, event: Event) -> None:
         """Call when Home Assistant is stopping."""
         await asyncio.gather(
-            *[platform.async_shutdown() for platform in chain(self._platforms.values())]
+            *(platform.async_shutdown() for platform in chain(self._platforms.values()))
         )

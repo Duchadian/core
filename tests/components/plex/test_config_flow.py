@@ -23,10 +23,10 @@ from homeassistant.components.plex.const import (
     SERVERS,
 )
 from homeassistant.config_entries import (
-    ENTRY_STATE_LOADED,
     SOURCE_INTEGRATION_DISCOVERY,
     SOURCE_REAUTH,
     SOURCE_USER,
+    ConfigEntryState,
 )
 from homeassistant.const import (
     CONF_HOST,
@@ -354,7 +354,7 @@ async def test_all_available_servers_configured(
 async def test_option_flow(hass, entry, mock_plex_server):
     """Test config options flow selection."""
     assert len(hass.config_entries.async_entries(DOMAIN)) == 1
-    assert entry.state == ENTRY_STATE_LOADED
+    assert entry.state is ConfigEntryState.LOADED
 
     result = await hass.config_entries.options.async_init(
         entry.entry_id, context={"source": "test"}, data=None
@@ -386,7 +386,7 @@ async def test_option_flow(hass, entry, mock_plex_server):
 async def test_missing_option_flow(hass, entry, mock_plex_server):
     """Test config options flow selection when no options stored."""
     assert len(hass.config_entries.async_entries(DOMAIN)) == 1
-    assert entry.state == ENTRY_STATE_LOADED
+    assert entry.state is ConfigEntryState.LOADED
 
     result = await hass.config_entries.options.async_init(
         entry.entry_id, context={"source": "test"}, data=None
@@ -624,7 +624,9 @@ async def test_manual_config(hass, mock_plex_calls, current_request_with_host):
     assert result["data"][PLEX_SERVER_CONFIG][CONF_TOKEN] == MOCK_TOKEN
 
 
-async def test_manual_config_with_token(hass, mock_plex_calls):
+async def test_manual_config_with_token(
+    hass, mock_plex_calls, requests_mock, empty_library, empty_payload
+):
     """Test creating via manual configuration with only token."""
 
     result = await hass.config_entries.flow.async_init(
@@ -653,12 +655,18 @@ async def test_manual_config_with_token(hass, mock_plex_calls):
 
     server_id = result["data"][CONF_SERVER_IDENTIFIER]
     mock_plex_server = hass.data[DOMAIN][SERVERS][server_id]
+    mock_url = mock_plex_server.url_in_use
 
-    assert result["title"] == mock_plex_server.url_in_use
+    assert result["title"] == mock_url
     assert result["data"][CONF_SERVER] == mock_plex_server.friendly_name
     assert result["data"][CONF_SERVER_IDENTIFIER] == mock_plex_server.machine_identifier
-    assert result["data"][PLEX_SERVER_CONFIG][CONF_URL] == mock_plex_server.url_in_use
+    assert result["data"][PLEX_SERVER_CONFIG][CONF_URL] == mock_url
     assert result["data"][PLEX_SERVER_CONFIG][CONF_TOKEN] == MOCK_TOKEN
+
+    # Complete Plex integration setup before teardown
+    requests_mock.get(f"{mock_url}/library", text=empty_library)
+    requests_mock.get(f"{mock_url}/library/sections", text=empty_payload)
+    await hass.async_block_till_done()
 
 
 async def test_setup_with_limited_credentials(hass, entry, setup_plex_server):
@@ -676,7 +684,7 @@ async def test_setup_with_limited_credentials(hass, entry, setup_plex_server):
     assert plex_server.owner is None
 
     assert len(hass.config_entries.async_entries(DOMAIN)) == 1
-    assert entry.state == ENTRY_STATE_LOADED
+    assert entry.state is ConfigEntryState.LOADED
 
 
 async def test_integration_discovery(hass):
@@ -707,7 +715,7 @@ async def test_trigger_reauth(
     """Test setup and reauthorization of a Plex token."""
     await async_setup_component(hass, "persistent_notification", {})
 
-    assert entry.state == ENTRY_STATE_LOADED
+    assert entry.state is ConfigEntryState.LOADED
 
     with patch(
         "plexapi.server.PlexServer.clients", side_effect=plexapi.exceptions.Unauthorized
@@ -716,7 +724,7 @@ async def test_trigger_reauth(
         await wait_for_debouncer(hass)
 
     assert len(hass.config_entries.async_entries(DOMAIN)) == 1
-    assert entry.state != ENTRY_STATE_LOADED
+    assert entry.state is not ConfigEntryState.LOADED
 
     flows = hass.config_entries.flow.async_progress()
     assert len(flows) == 1
@@ -741,7 +749,7 @@ async def test_trigger_reauth(
     assert len(hass.config_entries.flow.async_progress()) == 0
     assert len(hass.config_entries.async_entries(DOMAIN)) == 1
 
-    assert entry.state == ENTRY_STATE_LOADED
+    assert entry.state is ConfigEntryState.LOADED
     assert entry.data[CONF_SERVER] == mock_plex_server.friendly_name
     assert entry.data[CONF_SERVER_IDENTIFIER] == mock_plex_server.machine_identifier
     assert entry.data[PLEX_SERVER_CONFIG][CONF_URL] == PLEX_DIRECT_URL

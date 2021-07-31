@@ -67,6 +67,8 @@ class ZwaveDiscoveryInfo:
     platform_data: dict[str, Any] | None = None
     # additional values that need to be watched by entity
     additional_value_ids_to_watch: set[str] | None = None
+    # bool to specify whether entity should be enabled by default
+    entity_registry_enabled_default: bool = True
 
 
 @dataclass
@@ -135,6 +137,8 @@ class ZWaveDiscoverySchema:
     allow_multi: bool = False
     # [optional] bool to specify whether state is assumed and events should be fired on value update
     assumed_state: bool = False
+    # [optional] bool to specify whether entity should be enabled by default
+    entity_registry_enabled_default: bool = True
 
 
 def get_config_parameter_discovery_schema(
@@ -161,6 +165,7 @@ def get_config_parameter_discovery_schema(
             property_key_name=property_key_name,
             type={"number"},
         ),
+        entity_registry_enabled_default=False,
         **kwargs,
     )
 
@@ -173,6 +178,10 @@ SWITCH_MULTILEVEL_CURRENT_VALUE_SCHEMA = ZWaveValueDiscoverySchema(
 
 SWITCH_BINARY_CURRENT_VALUE_SCHEMA = ZWaveValueDiscoverySchema(
     command_class={CommandClass.SWITCH_BINARY}, property={"currentValue"}
+)
+
+SIREN_TONE_SCHEMA = ZWaveValueDiscoverySchema(
+    command_class={CommandClass.SOUND_SWITCH}, property={"toneId"}, type={"number"}
 )
 
 # For device class mapping see:
@@ -220,6 +229,7 @@ DISCOVERY_SCHEMAS = [
     # Fibaro Shutter Fibaro FGS222
     ZWaveDiscoverySchema(
         platform="cover",
+        hint="window_shutter",
         manufacturer_id={0x010F},
         product_id={0x1000},
         product_type={0x0302},
@@ -228,14 +238,16 @@ DISCOVERY_SCHEMAS = [
     # Qubino flush shutter
     ZWaveDiscoverySchema(
         platform="cover",
+        hint="window_shutter",
         manufacturer_id={0x0159},
-        product_id={0x0052},
+        product_id={0x0052, 0x0053},
         product_type={0x0003},
         primary_value=SWITCH_MULTILEVEL_CURRENT_VALUE_SCHEMA,
     ),
     # Graber/Bali/Spring Fashion Covers
     ZWaveDiscoverySchema(
         platform="cover",
+        hint="window_blind",
         manufacturer_id={0x026E},
         product_id={0x5A31},
         product_type={0x4353},
@@ -244,6 +256,7 @@ DISCOVERY_SCHEMAS = [
     # iBlinds v2 window blind motor
     ZWaveDiscoverySchema(
         platform="cover",
+        hint="window_blind",
         manufacturer_id={0x0287},
         product_id={0x000D},
         product_type={0x0003},
@@ -420,12 +433,33 @@ DISCOVERY_SCHEMAS = [
         ],
     ),
     # binary sensors
+    # When CC is Sensor Binary and device class generic is Binary Sensor, entity should
+    # be enabled by default
+    ZWaveDiscoverySchema(
+        platform="binary_sensor",
+        hint="boolean",
+        device_class_generic={"Binary Sensor"},
+        primary_value=ZWaveValueDiscoverySchema(
+            command_class={CommandClass.SENSOR_BINARY},
+            type={"boolean"},
+        ),
+    ),
+    # Legacy binary sensors are phased out (replaced by notification sensors)
+    # Disable by default to not confuse users
+    ZWaveDiscoverySchema(
+        platform="binary_sensor",
+        hint="boolean",
+        primary_value=ZWaveValueDiscoverySchema(
+            command_class={CommandClass.SENSOR_BINARY},
+            type={"boolean"},
+        ),
+        entity_registry_enabled_default=False,
+    ),
     ZWaveDiscoverySchema(
         platform="binary_sensor",
         hint="boolean",
         primary_value=ZWaveValueDiscoverySchema(
             command_class={
-                CommandClass.SENSOR_BINARY,
                 CommandClass.BATTERY,
                 CommandClass.SENSOR_ALARM,
             },
@@ -448,12 +482,18 @@ DISCOVERY_SCHEMAS = [
         platform="sensor",
         hint="string_sensor",
         primary_value=ZWaveValueDiscoverySchema(
-            command_class={
-                CommandClass.SENSOR_ALARM,
-                CommandClass.INDICATOR,
-            },
+            command_class={CommandClass.SENSOR_ALARM},
             type={"string"},
         ),
+    ),
+    ZWaveDiscoverySchema(
+        platform="sensor",
+        hint="string_sensor",
+        primary_value=ZWaveValueDiscoverySchema(
+            command_class={CommandClass.INDICATOR},
+            type={"string"},
+        ),
+        entity_registry_enabled_default=False,
     ),
     # generic numeric sensors
     ZWaveDiscoverySchema(
@@ -463,16 +503,24 @@ DISCOVERY_SCHEMAS = [
             command_class={
                 CommandClass.SENSOR_MULTILEVEL,
                 CommandClass.SENSOR_ALARM,
-                CommandClass.INDICATOR,
                 CommandClass.BATTERY,
             },
             type={"number"},
         ),
     ),
-    # numeric sensors for Meter CC
     ZWaveDiscoverySchema(
         platform="sensor",
         hint="numeric_sensor",
+        primary_value=ZWaveValueDiscoverySchema(
+            command_class={CommandClass.INDICATOR},
+            type={"number"},
+        ),
+        entity_registry_enabled_default=False,
+    ),
+    # Meter sensors for Meter CC
+    ZWaveDiscoverySchema(
+        platform="sensor",
+        hint="meter",
         primary_value=ZWaveValueDiscoverySchema(
             command_class={
                 CommandClass.METER,
@@ -492,6 +540,7 @@ DISCOVERY_SCHEMAS = [
             type={"number"},
         ),
         allow_multi=True,
+        entity_registry_enabled_default=False,
     ),
     # sensor for basic CC
     ZWaveDiscoverySchema(
@@ -504,6 +553,7 @@ DISCOVERY_SCHEMAS = [
             type={"number"},
             property={"currentValue"},
         ),
+        entity_registry_enabled_default=False,
     ),
     # binary switches
     ZWaveDiscoverySchema(
@@ -577,6 +627,11 @@ DISCOVERY_SCHEMAS = [
     ZWaveDiscoverySchema(
         platform="light",
         primary_value=SWITCH_MULTILEVEL_CURRENT_VALUE_SCHEMA,
+    ),
+    # sirens
+    ZWaveDiscoverySchema(
+        platform="siren",
+        primary_value=SIREN_TONE_SCHEMA,
     ),
 ]
 
@@ -684,6 +739,7 @@ def async_discover_values(node: ZwaveNode) -> Generator[ZwaveDiscoveryInfo, None
                 platform_data_template=schema.data_template,
                 platform_data=resolved_data,
                 additional_value_ids_to_watch=additional_value_ids_to_watch,
+                entity_registry_enabled_default=schema.entity_registry_enabled_default,
             )
 
             if not schema.allow_multi:
