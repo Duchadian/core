@@ -1,7 +1,7 @@
 """Test the Energy websocket API."""
 import pytest
 
-from homeassistant.components.energy import data
+from homeassistant.components.energy import data, is_configured
 from homeassistant.setup import async_setup_component
 
 from tests.common import flush_store
@@ -30,9 +30,12 @@ async def test_get_preferences_no_data(hass, hass_ws_client) -> None:
 
 async def test_get_preferences_default(hass, hass_ws_client, hass_storage) -> None:
     """Test we get preferences."""
+    assert not await is_configured(hass)
     manager = await data.async_get_manager(hass)
     manager.data = data.EnergyManager.default_preferences()
     client = await hass_ws_client(hass)
+
+    assert not await is_configured(hass)
 
     await client.send_json({"id": 5, "type": "energy/get_prefs"})
 
@@ -101,6 +104,11 @@ async def test_save_preferences(hass, hass_ws_client, hass_storage) -> None:
                 "stat_energy_from": "my_solar_production",
                 "config_entry_solar_forecast": ["predicted_config_entry"],
             },
+            {
+                "type": "battery",
+                "stat_energy_from": "my_battery_draining",
+                "stat_energy_to": "my_battery_charging",
+            },
         ],
         "device_consumption": [{"stat_consumption": "some_device_usage"}],
     }
@@ -118,6 +126,8 @@ async def test_save_preferences(hass, hass_ws_client, hass_storage) -> None:
     await flush_store((await data.async_get_manager(hass))._store)
 
     assert hass_storage[data.STORAGE_KEY]["data"] == new_prefs
+
+    assert await is_configured(hass)
 
     # Verify info reflects data.
     await client.send_json({"id": 7, "type": "energy/info"})
@@ -206,3 +216,19 @@ async def test_handle_duplicate_from_stat(hass, hass_ws_client) -> None:
     assert msg["id"] == 5
     assert not msg["success"]
     assert msg["error"]["code"] == "invalid_format"
+
+
+async def test_validate(hass, hass_ws_client) -> None:
+    """Test we can validate the preferences."""
+    client = await hass_ws_client(hass)
+
+    await client.send_json({"id": 5, "type": "energy/validate"})
+
+    msg = await client.receive_json()
+
+    assert msg["id"] == 5
+    assert msg["success"]
+    assert msg["result"] == {
+        "energy_sources": [],
+        "device_consumption": [],
+    }

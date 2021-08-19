@@ -25,6 +25,9 @@ from homeassistant.const import (
     ATTR_BATTERY_LEVEL,
     ATTR_DEVICE_ID,
     ATTR_ENTITY_ID,
+    ATTR_MANUFACTURER,
+    ATTR_MODEL,
+    ATTR_SW_VERSION,
     CONF_IP_ADDRESS,
     CONF_NAME,
     CONF_PORT,
@@ -41,6 +44,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entityfilter import BASE_FILTER_SCHEMA, FILTER_SCHEMA
 from homeassistant.helpers.reload import async_integration_yaml_config
 from homeassistant.helpers.service import async_extract_referenced_entity_ids
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import IntegrationNotFound, async_get_integration
 
 from . import (  # noqa: F401
@@ -61,9 +65,6 @@ from .accessories import HomeBridge, HomeDriver, get_accessory
 from .aidmanager import AccessoryAidStorage
 from .const import (
     ATTR_INTEGRATION,
-    ATTR_MANUFACTURER,
-    ATTR_MODEL,
-    ATTR_SOFTWARE_VERSION,
     BRIDGE_NAME,
     BRIDGE_SERIAL_NUMBER,
     CONF_ADVERTISE_IP,
@@ -187,7 +188,7 @@ def _async_get_entries_by_name(current_entries):
     return {entry.data.get(CONF_NAME, BRIDGE_NAME): entry for entry in current_entries}
 
 
-async def async_setup(hass: HomeAssistant, config: dict):
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the HomeKit from yaml."""
     hass.data.setdefault(DOMAIN, {})
 
@@ -886,7 +887,7 @@ class HomeKit:
                 if dev_reg_ent.model:
                     ent_cfg[ATTR_MODEL] = dev_reg_ent.model
                 if dev_reg_ent.sw_version:
-                    ent_cfg[ATTR_SOFTWARE_VERSION] = dev_reg_ent.sw_version
+                    ent_cfg[ATTR_SW_VERSION] = dev_reg_ent.sw_version
         if ATTR_MANUFACTURER not in ent_cfg:
             try:
                 integration = await async_get_integration(
